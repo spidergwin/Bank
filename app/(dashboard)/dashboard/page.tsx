@@ -117,9 +117,9 @@ export default async function DashboardPage() {
               </Link>
             } />
             <Button size="sm" nativeButton={false} variant="secondary" className="flex-1 min-w-[100px]" render={
-              <Link href="/withdraw">
+              <Link href="/deposit">
                 <IconArrowDownRight className="mr-2 h-4 w-4" />
-                Withdraw
+                Deposit
               </Link>
             } />
           </CardContent>

@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { User, Transaction } from "@prisma/client";
+import crypto from "crypto";
 
 // Helper to serialize BigInt to Number for JSON compatibility
 function serializeUser(user: User | null) {
@@ -238,4 +239,128 @@ export async function adminDeleteUser(userId: string) {
     const error = err as Error;
     return { error: error.message || "Failed to delete user" };
   }
+}
+
+export async function createDeposit(amount: number, provider: "nexapay" | "maxelpay" = "nexapay") {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) return { error: "Unauthorized" };
+
+  const user = await db.user.findUnique({
+    where: { id: session.user.id }
+  });
+
+  if (!user) return { error: "User not found" };
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const orderId = `DEP-${user.id.slice(0, 8)}-${Date.now()}`;
+
+  if (provider === "nexapay") {
+    const apiKey = process.env.NEXAPAY_API_KEY;
+    const apiUrl = process.env.NEXAPAY_API_URL || "https://nexapay.one/api/v1";
+
+    if (!apiKey) {
+      console.error("NexaPay API Key missing");
+      return { error: "NexaPay configuration missing" };
+    }
+
+    const payload = {
+      amount: Number(amount),
+      currency: "USD",
+      crypto: "USDC", // Settlement crypto
+      description: `Deposit for ${user.name} (Order ${orderId})`,
+      customer_email: user.email,
+      success_url: `${appUrl}/dashboard?status=success`,
+      cancel_url: `${appUrl}/deposit?status=cancelled`,
+      callback_url: `${appUrl}/api/webhooks/nexapay`,
+    };
+
+    try {
+      const response = await fetch(`${apiUrl}/payments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.payment) {
+        await db.transaction.create({
+          data: {
+            amount: Number(amount),
+            type: "deposit",
+            description: `NexaPay Deposit (Pending) | ID: ${result.payment.order_id}`,
+            senderId: null,
+            receiverId: user.id,
+          }
+        });
+
+        return { success: true, url: result.payment.checkout_url };
+      } else {
+        console.error("NexaPay API Error:", result);
+        return { error: result.message || "Failed to initiate NexaPay payment" };
+      }
+    } catch (error) {
+      console.error("NexaPay Network Error:", error);
+      return { error: "Failed to connect to NexaPay" };
+    }
+  } else if (provider === "maxelpay") {
+    const apiKey = process.env.MAXELPAY_API_KEY;
+    const apiUrl = process.env.MAXELPAY_API_URL || "https://api.maxelpay.com/api/v1";
+
+    if (!apiKey) {
+      console.error("MaxelPay API Key missing");
+      return { error: "MaxelPay configuration missing" };
+    }
+
+    const payload = {
+      orderId: orderId,
+      amount: Number(amount),
+      currency: "USD",
+      description: `Deposit for ${user.name} (Order ${orderId})`,
+      successUrl: `${appUrl}/dashboard?status=success`,
+      cancelUrl: `${appUrl}/deposit?status=cancelled`,
+      callbackUrl: `${appUrl}/api/webhooks/maxelpay`,
+    };
+
+    try {
+      const response = await fetch(`${apiUrl}/payments/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-KEY": apiKey
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (result.sessionId && result.url) {
+        await db.transaction.create({
+          data: {
+            amount: Number(amount),
+            type: "deposit",
+            description: `MaxelPay Deposit (Pending) | Session: ${result.sessionId}`,
+            senderId: null,
+            receiverId: user.id,
+          }
+        });
+
+        return { success: true, url: result.url };
+      } else {
+        console.error("MaxelPay API Error:", result);
+        return { error: result.message || "Failed to initiate MaxelPay payment" };
+      }
+    } catch (error) {
+      console.error("MaxelPay Network Error:", error);
+      return { error: "Failed to connect to MaxelPay" };
+    }
+  }
+
+  return { error: "Invalid provider" };
 }

@@ -1,0 +1,435 @@
+NexaPay API Documentation
+
+Everything you need to integrate NexaPay into your application. Accept payments and receive crypto settlements.
+Quick Start
+
+Get up and running in 5 minutes
+Integration Steps
+
+    1Create an account and get your API keys from the dashboard
+    2Set your crypto wallet address in Settings
+    3Use the API to create a payment session
+    4Redirect customers to the hosted checkout page
+    5Receive crypto when payment completes
+
+Try API Live Get API Keys
+
+JavaScriptPythonPHPcURL
+
+payment.js Copy
+
+// Create a payment using the NexaPay API
+const API_KEY = 'cg_live_your_api_key_here';
+const API_URL = 'https://nexapay.one/api/v1';
+// Create a payment with webhook callback
+async function createPayment() {
+  const response = await fetch(`${API_URL}/payments`, {
+    method: 'POST',
+    headers: {
+      'X-API-Key': API_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      amount: 99.00,
+      currency: 'USD',
+      crypto: 'USDC',
+      description: 'Order #123',
+      customer_email: 'customer@example.com',
+      success_url: 'https://yoursite.com/success',
+      cancel_url: 'https://yoursite.com/cancel',
+      callback_url: 'https://yoursite.com/webhooks/nexapay',
+    }),
+  });
+  const data = await response.json();
+  // Redirect customer to payment page
+  window.location.href = data.payment.checkout_url;
+}
+
+Authentication
+
+Secure your API requests
+
+NexaPay uses API keys to authenticate requests. All API requests must include your API key in the request headers. You can manage your API keys from the dashboard.
+
+Recommended
+
+X-API-Key Header
+
+X-API-Key: cg_live_your_api_key_here
+
+Bearer Token (Alternative)
+
+Authorization: Bearer cg_live_your_api_key_here
+
+Live
+
+API Keys
+
+All API keys are live keys used for both development and production. No charges occur until a customer completes the full checkout flow.
+
+Prefix: cg_live_
+
+Security Best Practices
+
+    Never expose API keys in client-side code or public repositories
+    Use environment variables to store keys securely
+    Rotate keys regularly and immediately if compromised
+    Safe to develop with live keys — no charges until a customer completes checkout
+
+Safe Testing
+
+Develop and test without any risk
+
+NexaPay uses a single live API key for both development and production. There is no separate test mode — and you don't need one. Creating a payment session via the API does not charge anyone. A real charge only occurs when a customer completes the full checkout and enters their payment details.
+What you can safely test
+
+    Create payment sessions and inspect the API response
+    Test the full redirect flow (success_url and cancel_url)
+    Verify webhook delivery to your endpoints
+    Build and debug your checkout integration end-to-end
+    No charges until a real customer completes payment
+
+How it works
+
+When you call the API to create a payment, NexaPay generates a checkout session and returns a checkout URL. No money moves at this point. The customer must visit the checkout page, enter their card details, and confirm the payment for any charge to occur. This means your developers can freely integrate, test redirects, and verify webhooks with zero risk.
+Payments
+
+Accept fiat, receive crypto
+
+Create payment sessions to accept card payments from your customers. Payments are automatically converted to cryptocurrency and settled to your configured wallet address.
+
+POST
+
+/api/v1/payments
+Request Body
+
+amount
+
+Required
+
+number
+
+Payment amount (e.g., 99.00)
+
+currency
+
+Required
+
+string
+
+Three-letter ISO currency code (USD, EUR, GBP)
+
+crypto
+
+string
+
+Settlement crypto (USDC, POL, LINK, UNI on Polygon)
+
+description
+
+string
+
+Payment description shown to customer
+
+customer_email
+
+string
+
+Customer email for receipts
+
+success_url
+
+string
+
+URL to redirect after successful payment
+
+cancel_url
+
+string
+
+URL to redirect on payment cancellation
+
+callback_url
+
+string
+
+Webhook URL for payment notifications
+
+Response
+
+{
+  "success": true,
+  "payment": {
+    "id": 123,
+    "order_id": "live_abc123def456...",
+    "amount": 99.00,
+    "currency": "USD",
+    "status": "created",
+    "checkout_url": "https://nexapay.one/checkout/live_abc123..."
+  }
+}
+
+Webhooks
+
+Real-time payment notifications
+
+Webhooks allow you to receive real-time notifications on payment events. Provide a callback_url when creating a payment, or set a global URL in your dashboard Settings. NexaPay sends a webhook for each of the following events: payment completed and session expired.
+Webhook Security
+
+All webhook requests include HMAC-SHA256 signatures for verification. Configure your webhook secret in the dashboard and verify signatures to prevent spoofing.
+
+X-NexaPay-SignatureHMAC-SHA256 signature
+
+X-NexaPay-TimestampRequest timestamp (for replay protection)
+
+Webhook Payload
+
+{
+  "order_id": "live_abc123def456...",
+  "payment_id": "12345678",
+  "status": "completed",
+  "amount": 95.95,
+  "txid": "0xabc123...",
+  "timestamp": "2026-02-18T01:32:31.881Z"
+}
+
+Status Values
+
+pendingPayment session was created. The customer has not yet completed payment.
+
+completedPayment was successfully processed. Fulfil the order.
+
+failedThe payment failed. Notify the customer and allow retry.
+
+expiredThe payment session timed out (24 hours) without a completed payment. Release any held inventory and notify the customer.
+
+Note: amount and txid are present for on-chain payments and may be omitted for card payments.
+
+webhook-handler.jsCopy
+
+// Webhook endpoint example (Node.js/Express)
+const crypto = require('crypto');
+app.post('/webhooks/nexapay', async (req, res) => {
+  const signature = req.headers['x-nexapay-signature'];
+  const timestamp = req.headers['x-nexapay-timestamp'];
+  const payload = JSON.stringify(req.body);
+  // Verify HMAC signature
+  const webhookSecret = process.env.NEXAPAY_WEBHOOK_SECRET;
+  if (webhookSecret && signature) {
+    const expectedSig = 'sha256=' + crypto
+      .createHmac('sha256', webhookSecret)
+      .update(timestamp + '.' + payload)
+      .digest('hex');
+    if (signature !== expectedSig) {
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+    // Reject old webhooks (replay protection)
+    const maxAge = 5 * 60 * 1000; // 5 minutes
+    if (Math.abs(Date.now() - parseInt(timestamp)) > maxAge) {
+      return res.status(401).json({ error: 'Webhook expired' });
+    }
+  }
+  const { order_id, payment_id, status } = req.body;
+  if (status === 'completed') {
+    await fulfillOrder(order_id);
+  } else if (status === 'expired') {
+    // Payment session timed out — release held inventory, notify customer
+    await cancelOrder(order_id);
+  }
+  res.json({ received: true });
+});
+
+Crypto Settlement
+
+Automatic fiat-to-crypto conversion
+
+All fiat payments are automatically converted to cryptocurrency at the current market rate and settled to your configured wallet address. No manual intervention required.
+
+U
+
+USDC
+
+USD Coin on Polygon
+
+P
+
+POL
+
+Polygon on Polygon
+
+L
+
+LINK
+
+Chainlink on Polygon
+
+U
+
+UNI
+
+Uniswap on Polygon
+Settlement Timeline
+
+Instant
+
+Payment confirmation
+
+Customer payment is verified
+
+10-30 sec
+
+Crypto conversion
+
+Fiat is converted at market rate
+
+1 min
+
+Settlement
+
+Crypto sent to your wallet
+API Endpoints
+
+Complete endpoint reference
+
+Base URL:https://nexapay.one/api/v1
+
+POST
+
+/paymentsCreate a new payment session
+
+GET
+
+/payments/:order_idGet payment status by order ID
+
+GET
+
+/paymentsList all payments (max 100)
+Error Handling
+
+Handle API errors gracefully
+
+The API uses standard HTTP status codes to indicate success or failure. All error responses include a JSON body with details about what went wrong.
+
+200
+
+OKRequest succeeded
+
+400
+
+Bad RequestInvalid request parameters
+
+401
+
+UnauthorizedInvalid or missing API key
+
+403
+
+ForbiddenAction not allowed for your account
+
+404
+
+Not FoundResource not found
+
+429
+
+Too Many RequestsRate limit exceeded
+
+500
+
+Server ErrorInternal server error
+Rate Limits
+
+API usage limits
+
+API requests are rate limited to ensure fair usage and maintain service quality. Rate limits are applied per API key.
+
+60
+
+Payment creations per API key per hour
+
+100
+
+General requests per minute
+
+Need higher limits? Contact our sales team for Enterprise plans with custom rate limits.
+Payment Button
+
+Drop-in checkout component
+
+The NexaPay Payment Button is a pre-built, animated checkout component that you can embed directly on your website. It handles the entire payment flow with a single line of code.
+
+Demo
+
+Nexa
+
+Pay
+
+Checkout flow preview
+
+integration.jsx
+
+Copy
+
+<NexaPayButton
+  amount={25.00}
+  currency="USD"
+  onSuccess={(tx) => console.log(tx)}
+/>
+
+Available Props
+Prop	Type	Default	Description
+amount	number	25.00	Payment amount
+currency	string	"USD"	Payment currency code
+onSuccess	function	-	Callback with transaction data
+size	string	"default"	"default" or "large"
+WooCommerce Plugin
+
+One-click WordPress integration
+
+Accept NexaPay payments on your WooCommerce store with our official plugin. HPOS compatible with full webhook support for automatic order updates.
+Installation Steps
+
+    1Download the plugin from the NexaPay documentation page
+    2Upload to WordPress via Plugins → Add New → Upload Plugin
+    3Activate the plugin
+    4Go to WooCommerce → Settings → Payments → NexaPay
+    5Enter your API key and webhook secret
+    6Enable the payment method
+
+Download Plugin
+SDKs & Libraries
+
+Official client libraries
+
+We provide official SDKs for popular programming languages. All SDKs are open source and available on GitHub.
+
+Node.js
+
+npm install nexapay
+
+Download
+
+Python
+
+pip install nexapay
+
+Download
+
+PHP
+
+nexapay/nexapay-php
+
+Coming Soon
+
+Ruby
+
+nexapay
+
+Coming Soon
+Need help?
+
+Our team is here to help you integrate NexaPay successfully.
+
+Contact Support Try API Live
+
+Chatbot

@@ -7,6 +7,7 @@ import {
   IconLayoutDashboard, 
   IconArrowUpRight, 
   IconArrowDownRight, 
+  IconArrowDownLeft,
   IconHistory, 
   IconSettings,
   IconLogout
@@ -30,6 +31,11 @@ export function DashboardNav() {
       label: "Overview",
       href: "/dashboard",
       icon: IconLayoutDashboard,
+    },
+    {
+      label: "Deposit",
+      href: "/deposit",
+      icon: IconArrowDownLeft,
     },
     {
       label: "Transfer",
