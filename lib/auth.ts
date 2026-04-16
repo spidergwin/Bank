@@ -10,7 +10,8 @@ export const auth = betterAuth({
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://10.197.193.31:3000",
-    "https://lumabankingsystem.vercel.app"
+    "https://lumabankingsystem.vercel.app",
+    "https://lumabank.vercel.app"
   ],
   emailAndPassword: {
     enabled: true,
