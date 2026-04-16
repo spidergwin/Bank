@@ -53,19 +53,20 @@ export async function transferFunds(formData: {
 
       await tx.user.update({
         where: { id: senderId },
-        data: { balance: { decrement: Number(amount) } },
+        data: { balance: { decrement: BigInt(Math.round(amount * 100)) } },
       });
 
       await tx.user.update({
         where: { id: receiver.id },
-        data: { balance: { increment: Number(amount) } },
+        data: { balance: { increment: BigInt(Math.round(amount * 100)) } },
       });
 
       return await tx.transaction.create({
         data: {
-          amount: Number(amount),
+          amount: BigInt(Math.round(amount * 100)),
           type: "transfer",
           description: description || `Transfer to ${receiver.name}`,
+          status: "completed",
           senderId: senderId,
           receiverId: receiver.id,
         },
@@ -110,18 +111,19 @@ export async function withdrawFunds(formData: {
       const user = await tx.user.findUnique({ where: { id: userId } });
       if (!user) throw new Error("User not found");
       if (user.isLocked) throw new Error(`Account Locked: ${user.lockedReason || "Your account has been restricted."}`);
-      if (Number(user.balance) < amount) throw new Error("Insufficient balance");
+      if (Number(user.balance) < (amount * 100)) throw new Error("Insufficient balance");
 
       await tx.user.update({
         where: { id: userId },
-        data: { balance: { decrement: Number(amount) } },
+        data: { balance: { decrement: BigInt(Math.round(amount * 100)) } },
       });
 
       return await tx.transaction.create({
         data: {
-          amount: Number(amount),
+          amount: BigInt(Math.round(amount * 100)),
           type: "withdraw",
           description: description || "ATM Withdrawal",
+          status: "completed",
           senderId: userId,
           receiverId: null,
         },
@@ -156,7 +158,7 @@ export async function adminUpdateUser(userId: string, data: {
         ...(data.name && { name: data.name }),
         ...(data.email && { email: data.email }),
         ...(data.role && { role: data.role }),
-        ...(data.balance !== undefined && { balance: Number(Math.round(data.balance)) }),
+        ...(data.balance !== undefined && { balance: BigInt(Math.round(data.balance * 100)) }),
       },
     });
 
@@ -181,7 +183,7 @@ export async function adminAdjustUserBalance(userId: string, amount: number, typ
   }
 
   try {
-    const adjustment = type === 'add' ? Number(amount) : -Number(amount);
+    const adjustment = type === 'add' ? BigInt(Math.round(amount * 100)) : -BigInt(Math.round(amount * 100));
     const updatedUser = await db.user.update({
       where: { id: userId },
       data: { balance: { increment: adjustment } },
@@ -254,7 +256,7 @@ export async function createDeposit(amount: number, provider: "nexapay" | "maxel
 
   if (!user) return { error: "User not found" };
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = process.env.NODE_ENV == "development" ? "http://127.0.0.1:3000" : process.env.NEXT_PUBLIC_APP_URL;
   const orderId = `DEP-${user.id.slice(0, 8)}-${Date.now()}`;
 
   if (provider === "nexapay") {
@@ -292,9 +294,10 @@ export async function createDeposit(amount: number, provider: "nexapay" | "maxel
       if (result.success && result.payment) {
         await db.transaction.create({
           data: {
-            amount: Number(amount),
+            amount: BigInt(Math.round(amount * 100)),
             type: "deposit",
-            description: `NexaPay Deposit (Pending) | ID: ${result.payment.order_id}`,
+            status: "pending",
+            description: `NexaPay Deposit | ID: ${result.payment.order_id}`,
             senderId: null,
             receiverId: user.id,
           }
@@ -339,19 +342,22 @@ export async function createDeposit(amount: number, provider: "nexapay" | "maxel
       });
 
       const result = await response.json();
+      const { data } = result;
+      console.log(data)
 
-      if (result.sessionId && result.url) {
+      if (data.sessionId && data.paymentUrl) {
         await db.transaction.create({
           data: {
-            amount: Number(amount),
+            amount: BigInt(Math.round(amount * 100)),
             type: "deposit",
-            description: `MaxelPay Deposit (Pending) | Session: ${result.sessionId}`,
+            status: "pending",
+            description: `MaxelPay Deposit | Session: ${data.sessionId}`,
             senderId: null,
             receiverId: user.id,
           }
         });
 
-        return { success: true, url: result.url };
+        return { success: true, url: data.paymentUrl };
       } else {
         console.error("MaxelPay API Error:", result);
         return { error: result.message || "Failed to initiate MaxelPay payment" };

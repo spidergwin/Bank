@@ -99,6 +99,7 @@ export default async function TransactionsPage() {
                     <TableRow className="hover:bg-transparent border-none">
                       <TableHead className="pl-8 py-4 font-bold text-[10px] uppercase tracking-widest">Type</TableHead>
                       <TableHead className="py-4 font-bold text-[10px] uppercase tracking-widest">Description</TableHead>
+                      <TableHead className="py-4 font-bold text-[10px] uppercase tracking-widest">Status</TableHead>
                       <TableHead className="py-4 font-bold text-[10px] uppercase tracking-widest">Date</TableHead>
                       <TableHead className="pr-8 py-4 font-bold text-[10px] uppercase tracking-widest text-right">Amount</TableHead>
                     </TableRow>
@@ -107,6 +108,7 @@ export default async function TransactionsPage() {
                     {serializedTransactions.map((tx) => {
                       const isSender = tx.senderId === user.id;
                       const amount = (tx.amount / 100).toFixed(2);
+                      const status = tx.status || "completed";
 
                       return (
                         <TableRow key={tx.id} className="border-b border-accent/20 hover:bg-muted/30 transition-colors">
@@ -123,6 +125,16 @@ export default async function TransactionsPage() {
                           </TableCell>
                           <TableCell className="max-w-[300px] truncate font-medium text-sm">
                             {tx.description || (isSender ? `To ${tx.receiver?.name}` : `From ${tx.sender?.name}`)}
+                          </TableCell>
+                          <TableCell>
+                            <span className={cn(
+                              "inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                              status === "completed" && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+                              status === "pending" && "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                              (status === "failed" || status === "expired") && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            )}>
+                              {status}
+                            </span>
                           </TableCell>
                           <TableCell className="text-sm font-medium text-muted-foreground">
                             {new Date(tx.createdAt).toLocaleDateString(undefined, {
@@ -149,31 +161,45 @@ export default async function TransactionsPage() {
                 {serializedTransactions.map((tx) => {
                   const isSender = tx.senderId === user.id;
                   const amount = (tx.amount / 100).toFixed(2);
+                  const status = tx.status || "completed";
 
                   return (
-                    <div key={tx.id} className="flex items-center justify-between p-5 border border-accent/30 rounded-3xl bg-accent/5">
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "flex h-10 w-10 items-center justify-center rounded-xl shadow-sm",
-                          isSender ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"
+                    <div key={tx.id} className="flex flex-col p-5 border border-accent/30 rounded-3xl bg-accent/5 gap-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "flex h-10 w-10 items-center justify-center rounded-xl shadow-sm",
+                            isSender ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"
+                          )}>
+                            {isSender ? <IconArrowUpRight className="h-5 w-5" /> : <IconArrowDownRight className="h-5 w-5" />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold tracking-tight">
+                              {tx.description || (isSender ? `To ${tx.receiver?.name}` : `From ${tx.sender?.name}`)}
+                            </p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                              {new Date(tx.createdAt).toLocaleDateString()} • {tx.type}
+                            </p>
+                          </div>
+                        </div>
+                        <p className={cn(
+                          "text-base font-bold tracking-tighter",
+                          isSender ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
                         )}>
-                          {isSender ? <IconArrowUpRight className="h-5 w-5" /> : <IconArrowDownRight className="h-5 w-5" />}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold tracking-tight">
-                            {tx.description || (isSender ? `To ${tx.receiver?.name}` : `From ${tx.sender?.name}`)}
-                          </p>
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                            {new Date(tx.createdAt).toLocaleDateString()} • {tx.type}
-                          </p>
-                        </div>
+                          {isSender ? '-' : '+'}${amount}
+                        </p>
                       </div>
-                      <p className={cn(
-                        "text-base font-bold tracking-tighter",
-                        isSender ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
-                      )}>
-                        {isSender ? '-' : '+'}${amount}
-                      </p>
+                      <div className="flex items-center justify-between pt-3 border-t border-accent/20">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Status</span>
+                        <span className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest",
+                          status === "completed" && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+                          status === "pending" && "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                          (status === "failed" || status === "expired") && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        )}>
+                          {status}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}

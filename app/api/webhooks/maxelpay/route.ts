@@ -65,10 +65,11 @@ export async function POST(req: Request) {
           },
         });
 
-        // Update transaction description to completed
+        // Update transaction status and description
         await tx.transaction.update({
           where: { id: transaction.id },
           data: {
+            status: "completed",
             description: `MaxelPay Deposit Completed | Session: ${sessionId} | Order: ${orderId}`,
           },
         });

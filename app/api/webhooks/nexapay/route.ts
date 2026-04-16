@@ -63,14 +63,15 @@ export async function POST(req: Request) {
         // Update user balance
         await tx.user.update({
           where: { id: transaction.receiverId! },
-          data: { balance: { increment: Number(amount) } }
+          data: { balance: { increment: BigInt(Math.round(Number(amount) * 100)) } }
         });
 
-        // Update transaction description to completed and clear pending status
+        // Update transaction to completed and clear pending status
         await tx.transaction.update({
           where: { id: transaction.id },
           data: {
-            amount: Number(amount), // Update with actual paid amount if different
+            amount: BigInt(Math.round(Number(amount) * 100)), // Update with actual paid amount
+            status: "completed",
             description: `NexaPay Deposit Completed | Order ID: ${order_id}`
           }
         });
@@ -93,6 +94,7 @@ export async function POST(req: Request) {
         await db.transaction.update({
           where: { id: transaction.id },
           data: {
+            status: status === 'expired' ? 'expired' : 'failed',
             description: `NexaPay Deposit ${status.toUpperCase()} | Order ID: ${order_id}`
           }
         });

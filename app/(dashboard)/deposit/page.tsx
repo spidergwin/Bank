@@ -13,18 +13,12 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import { createDeposit } from "@/server/actions";
-import { IconArrowLeft, IconCreditCard, IconLoader2, IconAlertCircle, IconExternalLink, IconCurrencyBitcoin } from "@tabler/icons-react";
+import { IconArrowLeft, IconCreditCard, IconLoader2, IconAlertCircle, IconExternalLink, IconCurrencyBitcoin, IconCheck, IconCurrencyEthereum, IconCurrencySolana, IconCoins } from "@tabler/icons-react";
 import Link from "next/link";
-import { Controller } from "react-hook-form";
+import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar";
 
 const formSchema = z.object({
   amount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 1.00, "Minimum deposit amount is $1.00"),
@@ -91,39 +85,99 @@ export default function DepositPage() {
         </CardHeader>
         <CardContent className="p-8 md:p-10">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FieldGroup className="space-y-6">
+            <FieldGroup className="space-y-8">
               <Field>
-                <FieldLabel htmlFor="provider" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Payment Method</FieldLabel>
-                <Controller
-                  name="provider"
-                  control={form.control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="w-full h-14 rounded-xl bg-accent/30 border-transparent focus:bg-background px-4 text-base font-bold transition-all mt-1">
-                        <SelectValue placeholder="Select provider" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="nexapay">
-                          <div className="flex items-center gap-2">
-                            <IconCreditCard className="h-4 w-4" />
-                            <span>NexaPay (Credit/Debit Card)</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="maxelpay">
-                          <div className="flex items-center gap-2">
-                            <IconCurrencyBitcoin className="h-4 w-4" />
-                            <span>MaxelPay (Crypto)</span>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
+                <FieldLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground mb-4 block">Select Payment Method</FieldLabel>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => form.setValue("provider", "nexapay")}
+                    className={cn(
+                      "relative flex flex-col items-start p-6 rounded-[1.5rem] border-2 text-left transition-all duration-200 group",
+                      selectedProvider === "nexapay" 
+                        ? "border-primary bg-primary/5 shadow-md" 
+                        : "border-accent/50 bg-accent/10 hover:border-accent hover:bg-accent/20"
+                    )}
+                  >
+                    <div className={cn(
+                      "mb-4 p-3 rounded-xl transition-colors",
+                      selectedProvider === "nexapay" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground group-hover:text-foreground"
+                    )}>
+                      <IconCreditCard size={24} />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold text-lg tracking-tight">NexaPay</p>
+                      <p className="text-xs text-muted-foreground font-medium">Credit / Debit Card</p>
+                    </div>
+                    {selectedProvider === "nexapay" && (
+                      <div className="absolute top-4 right-4 h-6 w-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
+                        <IconCheck size={14} strokeWidth={4} />
+                      </div>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => form.setValue("provider", "maxelpay")}
+                    className={cn(
+                      "relative flex flex-col items-start p-6 rounded-[1.5rem] border-2 text-left transition-all duration-200 group",
+                      selectedProvider === "maxelpay" 
+                        ? "border-primary bg-primary/5 shadow-md" 
+                        : "border-accent/50 bg-accent/10 hover:border-accent hover:bg-accent/20"
+                    )}
+                  >
+                    <div className="mb-4 flex items-center h-[48px]">
+                      <AvatarGroup className="-space-x-3">
+                        <Avatar className={cn(
+                          "size-10 border-2 border-background shadow-sm",
+                          selectedProvider === "maxelpay" ? "bg-primary text-primary-foreground" : "bg-background text-[#F7931A]"
+                        )}>
+                          <AvatarFallback className="bg-inherit">
+                            <IconCurrencyBitcoin size={20} strokeWidth={2.5} />
+                          </AvatarFallback>
+                        </Avatar>
+                        <Avatar className={cn(
+                          "size-10 border-2 border-background shadow-sm",
+                          selectedProvider === "maxelpay" ? "bg-primary text-primary-foreground" : "bg-background text-[#627EEA]"
+                        )}>
+                          <AvatarFallback className="bg-inherit">
+                            <IconCurrencyEthereum size={20} strokeWidth={2.5} />
+                          </AvatarFallback>
+                        </Avatar>
+                        <Avatar className={cn(
+                          "size-10 border-2 border-background shadow-sm",
+                          selectedProvider === "maxelpay" ? "bg-primary text-primary-foreground" : "bg-background text-[#14F195]"
+                        )}>
+                          <AvatarFallback className="bg-inherit">
+                            <IconCurrencySolana size={20} strokeWidth={2.5} />
+                          </AvatarFallback>
+                        </Avatar>
+                        <Avatar className={cn(
+                          "size-10 border-2 border-background shadow-sm",
+                          selectedProvider === "maxelpay" ? "bg-primary text-primary-foreground" : "bg-background text-primary/40"
+                        )}>
+                          <AvatarFallback className="bg-inherit">
+                            <IconCoins size={20} strokeWidth={2.5} />
+                          </AvatarFallback>
+                        </Avatar>
+                      </AvatarGroup>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold text-lg tracking-tight">MaxelPay</p>
+                      <p className="text-xs text-muted-foreground font-medium">Crypto Assets</p>
+                    </div>
+                    {selectedProvider === "maxelpay" && (
+                      <div className="absolute top-4 right-4 h-6 w-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
+                        <IconCheck size={14} strokeWidth={4} />
+                      </div>
+                    )}
+                  </button>
+                </div>
               </Field>
 
               <Field>
                 <FieldLabel htmlFor="amount" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Amount to Deposit ($)</FieldLabel>
-                <div className="relative mt-1">
+                <div className="relative mt-2">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-muted-foreground">$</span>
                   <Input 
                     id="amount" 
@@ -142,10 +196,10 @@ export default function DepositPage() {
               
               <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-2">
                 <div className="flex items-center gap-2 text-primary">
-                  {selectedProvider === "nexapay" ? <IconCreditCard size={18} /> : <IconCurrencyBitcoin size={18} />}
+                  {selectedProvider === "nexapay" ? <IconCreditCard size={18} /> : <IconCoins size={18} />}
                   <span className="text-sm font-bold">Secure Payment via {selectedProvider === "nexapay" ? "NexaPay" : "MaxelPay"}</span>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
+                <p className="text-xs text-muted-foreground leading-relaxed font-medium">
                   {selectedProvider === "nexapay" 
                     ? "We use NexaPay for secure, encrypted card payments. Your funds will be credited instantly upon confirmation."
                     : "MaxelPay handles our crypto deposits securely. Your funds will be credited after blockchain confirmation."}

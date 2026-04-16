@@ -26,6 +26,7 @@ interface Transaction {
   id: string;
   amount: number;
   type: string;
+  status: string | null;
   description: string | null;
   createdAt: Date;
   sender: { name: string; accountNumber: string } | null;
@@ -41,7 +42,8 @@ export default function TransactionManagementClient({ transactions }: { transact
     tx.receiver?.name.toLowerCase().includes(search.toLowerCase()) ||
     tx.sender?.accountNumber.includes(search) ||
     tx.receiver?.accountNumber.includes(search) ||
-    tx.type.toLowerCase().includes(search.toLowerCase())
+    tx.type.toLowerCase().includes(search.toLowerCase()) ||
+    tx.status?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -98,6 +100,7 @@ export default function TransactionManagementClient({ transactions }: { transact
                       <TableHead className="pl-8 py-4 font-bold text-[10px] uppercase tracking-widest">Transaction</TableHead>
                       <TableHead className="py-4 font-bold text-[10px] uppercase tracking-widest">Sender</TableHead>
                       <TableHead className="py-4 font-bold text-[10px] uppercase tracking-widest">Recipient</TableHead>
+                      <TableHead className="py-4 font-bold text-[10px] uppercase tracking-widest">Status</TableHead>
                       <TableHead className="py-4 font-bold text-[10px] uppercase tracking-widest text-right">Amount</TableHead>
                       <TableHead className="pr-8 py-4 font-bold text-[10px] uppercase tracking-widest text-right">Timestamp</TableHead>
                     </TableRow>
@@ -130,6 +133,16 @@ export default function TransactionManagementClient({ transactions }: { transact
                             <span className="font-bold text-sm">{tx.receiver?.name || (tx.type === 'withdraw' ? 'ATM WITHDRAWAL' : 'UNKNOWN')}</span>
                             <span className="text-[10px] font-mono font-bold text-muted-foreground">{tx.receiver?.accountNumber || '---'}</span>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={cn(
+                            "rounded-full px-2 py-0 text-[10px] font-bold uppercase tracking-tight",
+                            (tx.status === "completed" || !tx.status) ? "bg-green-50 text-green-700 border-green-200" :
+                            tx.status === "pending" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                            "bg-red-50 text-red-700 border-red-200"
+                          )}>
+                            {tx.status || "completed"}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <span className={cn(
@@ -167,10 +180,20 @@ export default function TransactionManagementClient({ transactions }: { transact
                           <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{new Date(tx.createdAt).toLocaleDateString()}</span>
                         </div>
                       </div>
-                      <span className={cn(
-                        "font-bold text-lg tracking-tighter",
-                        tx.type === 'transfer' ? "text-primary" : "text-destructive"
-                      )}>${(tx.amount / 100).toLocaleString()}</span>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={cn(
+                          "font-bold text-lg tracking-tighter",
+                          tx.type === 'transfer' ? "text-primary" : "text-destructive"
+                        )}>${(tx.amount / 100).toLocaleString()}</span>
+                        <Badge variant="outline" className={cn(
+                          "rounded-full px-2 py-0 text-[8px] font-black uppercase tracking-widest h-4",
+                          (tx.status === "completed" || !tx.status) ? "bg-green-50 text-green-700 border-green-200" :
+                          tx.status === "pending" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                          "bg-red-50 text-red-700 border-red-200"
+                        )}>
+                          {tx.status || "completed"}
+                        </Badge>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 py-4 border-y border-accent/20">

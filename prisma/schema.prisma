@@ -76,6 +76,7 @@ model Transaction {
   amount      BigInt
   type        String
   description String?
+  status      String?
   createdAt   DateTime @default(now())
   senderId    String?
   receiverId  String?
