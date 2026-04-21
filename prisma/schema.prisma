@@ -9,13 +9,15 @@ datasource db {
 model User {
   id                   String        @id @default(cuid())
   name                 String
+  firstName            String
+  lastName             String
   email                String        @unique
   emailVerified        Boolean       @default(false)
   image                String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   accountNumber        String        @unique
-  balance              BigInt        @default(0)
+  balance              Float         @default(0)
   role                 String        @default("user")
   isLocked             Boolean       @default(false)
   lockedReason         String?
@@ -73,7 +75,7 @@ model Verification {
 
 model Transaction {
   id          String   @id @default(cuid())
-  amount      BigInt
+  amount      Float
   type        String
   description String?
   status      String?

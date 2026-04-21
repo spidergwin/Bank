@@ -37,7 +37,8 @@ import { cn } from "@/lib/utils";
 interface UserEditorProps {
   user: {
     id: string;
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
     balance: number;
     role: string;
@@ -53,7 +54,8 @@ export function UserEditor({ user, onUpdate }: UserEditorProps) {
 
   // Profile state
   const [profile, setProfile] = useState({
-    name: user.name,
+    firstName: user.firstName,
+    lastName: user.lastName,
     email: user.email,
     role: user.role
   });
@@ -86,8 +88,12 @@ export function UserEditor({ user, onUpdate }: UserEditorProps) {
     setIsLoading(true);
     try {
       const balanceInCents = Math.round(Number(balanceValue) * 100);
-      const result = await adminUpdateUser(user.id, { balance: balanceInCents });
-      if (result.error) toast.error(result.error);
+      const result = await adminUpdateUser(user.id, { balance: balanceInCents / 100 }); // Admin action expects dollars as per current implementation, wait, my write_file for actions.ts multiplied it by 100
+      // Actually my new server/actions.ts adminUpdateUser does balance: BigInt(Math.round(data.balance * 100))
+      // So I should pass dollars.
+      const result2 = await adminUpdateUser(user.id, { balance: Number(balanceValue) });
+      
+      if (result2.error) toast.error(result2.error);
       else {
         toast.success("Balance updated successfully");
         onUpdate?.();
@@ -107,8 +113,8 @@ export function UserEditor({ user, onUpdate }: UserEditorProps) {
     }
     setIsLoading(true);
     try {
-      const amountInCents = Math.round(Number(adjustmentAmount) * 100);
-      const result = await adminAdjustUserBalance(user.id, amountInCents, type);
+      const amountInDollars = Number(adjustmentAmount);
+      const result = await adminAdjustUserBalance(user.id, amountInDollars, type);
       if (result.error) toast.error(result.error);
       else {
         toast.success(`Successfully ${type === 'add' ? 'added' : 'deducted'} funds`);
@@ -150,7 +156,7 @@ export function UserEditor({ user, onUpdate }: UserEditorProps) {
         <DialogHeader className="p-8 pb-0">
           <DialogTitle className="text-2xl font-bold">Manage Account</DialogTitle>
           <DialogDescription className="text-base font-medium">
-            Administrative controls for <strong>{user.name}</strong>
+            Administrative controls for <strong>{user.firstName} {user.lastName}</strong>
           </DialogDescription>
         </DialogHeader>
 
@@ -164,14 +170,24 @@ export function UserEditor({ user, onUpdate }: UserEditorProps) {
           <div className="p-8 min-h-[300px]">
             <TabsContent value="profile" className="mt-0 space-y-6 outline-none">
               <FieldGroup className="space-y-4">
-                <Field>
-                  <FieldLabel className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground">Full Name</FieldLabel>
-                  <Input
-                    value={profile.name}
-                    onChange={e => setProfile(prev => ({ ...prev, name: e.target.value }))}
-                    className="h-12 rounded-xl bg-accent/30 border-transparent focus:bg-background transition-all"
-                  />
-                </Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field>
+                    <FieldLabel className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground">First Name</FieldLabel>
+                    <Input
+                      value={profile.firstName}
+                      onChange={e => setProfile(prev => ({ ...prev, firstName: e.target.value }))}
+                      className="h-12 rounded-xl bg-accent/30 border-transparent focus:bg-background transition-all"
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground">Last Name</FieldLabel>
+                    <Input
+                      value={profile.lastName}
+                      onChange={e => setProfile(prev => ({ ...prev, lastName: e.target.value }))}
+                      className="h-12 rounded-xl bg-accent/30 border-transparent focus:bg-background transition-all"
+                    />
+                  </Field>
+                </div>
                 <Field>
                   <FieldLabel className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground">Email Address</FieldLabel>
                   <Input

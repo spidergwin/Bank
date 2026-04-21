@@ -17,11 +17,12 @@ import {
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { generateAccountNumber } from "@/lib/utils";
-import { IconEye, IconEyeOff, IconLoader2, IconCheck, IconX, IconAlertCircle } from "@tabler/icons-react";
+import { IconEye, IconEyeOff, IconLoader2, IconCheck, IconX, IconAlertCircle, IconMailForward } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 const formSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   password: z
     .string()
@@ -36,11 +37,13 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
+      firstName: "",
+      lastName: "",
       email: "",
       password: "",
     },
@@ -59,24 +62,23 @@ export default function RegisterPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     setFormError(null);
-    console.log("Submitting register form...", values.email);
     try {
       const { data, error } = await authClient.signUp.email({
         email: values.email,
         password: values.password,
-        name: values.name,
+        name: `${values.firstName} ${values.lastName}`,
+        firstName: values.firstName,
+        lastName: values.lastName,
         accountNumber: generateAccountNumber(),
         balance: 100000, // Starting bonus for new users
       });
-
-      console.log("Sign-up response:", { data, error });
 
       if (error) {
         setFormError(error.message || "Failed to create account. Please try again.");
         toast.error("Account creation failed");
       } else {
-        toast.success("Account created successfully! Welcome to Luma Bank.");
-        router.push("/dashboard");
+        setIsSuccess(true);
+        toast.success("Account created successfully!");
       }
     } catch (err) {
       console.error("Sign-up catch error:", err);
@@ -87,6 +89,27 @@ export default function RegisterPage() {
     }
   }
 
+  if (isSuccess) {
+    return (
+      <div className="flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in-95 duration-500">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="mx-auto flex aspect-square size-20 items-center justify-center rounded-3xl bg-primary/10 text-primary mb-2">
+            <IconMailForward className="size-10" />
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight">Check your email</h1>
+          <p className="text-muted-foreground font-medium leading-relaxed">
+            We&apos;ve sent a verification link to <span className="text-foreground font-bold">{form.getValues("email")}</span>. Please click the link to verify your account and start banking.
+          </p>
+          <div className="pt-4">
+            <Button variant="outline" className="rounded-xl w-full h-12 font-bold" render={
+              <Link href="/login">Back to Sign In</Link>
+            } />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center justify-center space-y-6">
       <div className="text-center space-y-2 mb-2">
@@ -94,7 +117,7 @@ export default function RegisterPage() {
         <p className="text-muted-foreground font-medium">Join thousands of modern savers today</p>
       </div>
 
-      <Card className="w-full border-border/50 shadow-xl shadow-black/5 rounded-[2rem] overflow-hidden bg-background">
+      <Card className="w-full max-w-xl border-border/50 shadow-xl shadow-black/5 rounded-[2rem] overflow-hidden bg-background">
         <CardContent className="p-8 md:p-10">
           {formError && (
             <div className="mb-6 flex items-center gap-3 rounded-xl bg-destructive/10 p-4 text-sm font-bold text-destructive animate-in fade-in zoom-in-95 duration-200">
@@ -104,19 +127,34 @@ export default function RegisterPage() {
           )}
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             <FieldGroup className="space-y-4">
-              <Field>
-                <FieldLabel htmlFor="name" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Full Name</FieldLabel>
-                <Input
-                  id="name"
-                  placeholder="e.g. John Doe"
-                  className="h-12 rounded-xl bg-accent/30 border-transparent focus:bg-background transition-all"
-                  {...form.register("name")}
-                  required
-                />
-                {form.formState.errors.name && (
-                  <p className="text-destructive text-xs font-medium mt-1">{form.formState.errors.name.message}</p>
-                )}
-              </Field>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field>
+                  <FieldLabel htmlFor="firstName" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">First Name</FieldLabel>
+                  <Input
+                    id="firstName"
+                    placeholder="John"
+                    className="h-12 rounded-xl bg-accent/30 border-transparent focus:bg-background transition-all"
+                    {...form.register("firstName")}
+                    required
+                  />
+                  {form.formState.errors.firstName && (
+                    <p className="text-destructive text-[10px] font-bold mt-1 uppercase tracking-tight">{form.formState.errors.firstName.message}</p>
+                  )}
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="lastName" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Last Name</FieldLabel>
+                  <Input
+                    id="lastName"
+                    placeholder="Doe"
+                    className="h-12 rounded-xl bg-accent/30 border-transparent focus:bg-background transition-all"
+                    {...form.register("lastName")}
+                    required
+                  />
+                  {form.formState.errors.lastName && (
+                    <p className="text-destructive text-[10px] font-bold mt-1 uppercase tracking-tight">{form.formState.errors.lastName.message}</p>
+                  )}
+                </Field>
+              </div>
               <Field>
                 <FieldLabel htmlFor="email" className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Email Address</FieldLabel>
                 <Input
@@ -128,7 +166,7 @@ export default function RegisterPage() {
                   required
                 />
                 {form.formState.errors.email && (
-                  <p className="text-destructive text-xs font-medium mt-1">{form.formState.errors.email.message}</p>
+                  <p className="text-destructive text-[10px] font-bold mt-1 uppercase tracking-tight">{form.formState.errors.email.message}</p>
                 )}
               </Field>
               <Field>

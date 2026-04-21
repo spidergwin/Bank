@@ -29,8 +29,8 @@ interface Transaction {
   status: string | null;
   description: string | null;
   createdAt: Date;
-  sender: { name: string; accountNumber: string } | null;
-  receiver: { name: string; accountNumber: string } | null;
+  sender: { firstName: string; lastName: string; accountNumber: string } | null;
+  receiver: { firstName: string; lastName: string; accountNumber: string } | null;
 }
 
 export default function TransactionManagementClient({ transactions }: { transactions: Transaction[] }) {
@@ -38,8 +38,10 @@ export default function TransactionManagementClient({ transactions }: { transact
 
   const filteredTransactions = transactions.filter(tx =>
     tx.description?.toLowerCase().includes(search.toLowerCase()) ||
-    tx.sender?.name.toLowerCase().includes(search.toLowerCase()) ||
-    tx.receiver?.name.toLowerCase().includes(search.toLowerCase()) ||
+    tx.sender?.firstName.toLowerCase().includes(search.toLowerCase()) ||
+    tx.sender?.lastName.toLowerCase().includes(search.toLowerCase()) ||
+    tx.receiver?.firstName.toLowerCase().includes(search.toLowerCase()) ||
+    tx.receiver?.lastName.toLowerCase().includes(search.toLowerCase()) ||
     tx.sender?.accountNumber.includes(search) ||
     tx.receiver?.accountNumber.includes(search) ||
     tx.type.toLowerCase().includes(search.toLowerCase()) ||
@@ -124,13 +126,13 @@ export default function TransactionManagementClient({ transactions }: { transact
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="font-bold text-sm">{tx.sender?.name || 'SYSTEM'}</span>
+                            <span className="font-bold text-sm">{tx.sender ? `${tx.sender.firstName} ${tx.sender.lastName}` : 'SYSTEM'}</span>
                             <span className="text-[10px] font-mono font-bold text-muted-foreground">{tx.sender?.accountNumber || '---'}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="font-bold text-sm">{tx.receiver?.name || (tx.type === 'withdraw' ? 'ATM WITHDRAWAL' : 'UNKNOWN')}</span>
+                            <span className="font-bold text-sm">{tx.receiver ? `${tx.receiver.firstName} ${tx.receiver.lastName}` : (tx.type === 'withdraw' ? 'ATM WITHDRAWAL' : 'UNKNOWN')}</span>
                             <span className="text-[10px] font-mono font-bold text-muted-foreground">{tx.receiver?.accountNumber || '---'}</span>
                           </div>
                         </TableCell>
@@ -199,11 +201,11 @@ export default function TransactionManagementClient({ transactions }: { transact
                     <div className="grid grid-cols-2 gap-4 py-4 border-y border-accent/20">
                       <div className="flex flex-col gap-1">
                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Sender</span>
-                        <span className="font-bold text-xs truncate">{tx.sender?.name || 'SYSTEM'}</span>
+                        <span className="font-bold text-xs truncate">{tx.sender ? `${tx.sender.firstName} ${tx.sender.lastName}` : 'SYSTEM'}</span>
                       </div>
                       <div className="flex flex-col gap-1 text-right">
                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Recipient</span>
-                        <span className="font-bold text-xs truncate">{tx.receiver?.name || (tx.type === 'withdraw' ? 'ATM' : 'SYSTEM')}</span>
+                        <span className="font-bold text-xs truncate">{tx.receiver ? `${tx.receiver.firstName} ${tx.receiver.lastName}` : (tx.type === 'withdraw' ? 'ATM' : 'SYSTEM')}</span>
                       </div>
                     </div>
 

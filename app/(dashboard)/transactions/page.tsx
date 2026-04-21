@@ -124,7 +124,7 @@ export default async function TransactionsPage() {
                             </div>
                           </TableCell>
                           <TableCell className="max-w-[300px] truncate font-medium text-sm">
-                            {tx.description || (isSender ? `To ${tx.receiver?.name}` : `From ${tx.sender?.name}`)}
+                            {tx.description || (isSender ? `To ${tx.receiver ? `${tx.receiver.firstName} ${tx.receiver.lastName}` : 'Unknown'}` : `From ${tx.sender ? `${tx.sender.firstName} ${tx.sender.lastName}` : 'Unknown'}`)}
                           </TableCell>
                           <TableCell>
                             <span className={cn(
@@ -175,7 +175,7 @@ export default async function TransactionsPage() {
                           </div>
                           <div>
                             <p className="text-sm font-bold tracking-tight">
-                              {tx.description || (isSender ? `To ${tx.receiver?.name}` : `From ${tx.sender?.name}`)}
+                              {tx.description || (isSender ? `To ${tx.receiver ? `${tx.receiver.firstName} ${tx.receiver.lastName}` : 'Unknown'}` : `From ${tx.sender ? `${tx.sender.firstName} ${tx.sender.lastName}` : 'Unknown'}`)}
                             </p>
                             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                               {new Date(tx.createdAt).toLocaleDateString()} • {tx.type}

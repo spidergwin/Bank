@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/field";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
-import { IconEye, IconEyeOff, IconLoader2, IconBuildingBank, IconAlertCircle } from "@tabler/icons-react";
+import { IconEye, IconEyeOff, IconLoader2, IconBuildingBank, IconAlertCircle, IconMailForward } from "@tabler/icons-react";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -29,6 +29,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [unverified, setUnverified] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -41,17 +43,20 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     setFormError(null);
-    console.log("Submitting login form...", values.email);
+    setUnverified(false);
     try {
       const { data, error } = await authClient.signIn.email({
         email: values.email,
         password: values.password,
       });
 
-      console.log("Sign-in response:", { data, error });
-
       if (error) {
-        setFormError(error.message || "Invalid email or password. Please try again.");
+        if (error.code === "EMAIL_NOT_VERIFIED" || error.status === 403) {
+          setUnverified(true);
+          setFormError("Your email address has not been verified yet.");
+        } else {
+          setFormError(error.message || "Invalid email or password. Please try again.");
+        }
         toast.error("Sign in failed");
       } else {
         toast.success("Welcome back! Redirecting...");
@@ -72,6 +77,27 @@ export default function LoginPage() {
     }
   }
 
+  const handleResendVerification = async () => {
+    setResending(true);
+    try {
+      const email = form.getValues("email");
+      const { error } = await authClient.sendVerificationEmail({
+        email,
+        callbackURL: "/dashboard",
+      });
+
+      if (error) {
+        toast.error(error.message || "Failed to resend verification email");
+      } else {
+        toast.success("Verification email resent! Please check your inbox.");
+      }
+    } catch (err) {
+      toast.error("An unexpected error occurred");
+    } finally {
+      setResending(false);
+    }
+  };
+
   return (
     <div className="flex min-h-[80vh] flex-col items-center justify-center p-4 md:p-8">
       <div className="w-full max-w-[400px] space-y-6">
@@ -88,9 +114,22 @@ export default function LoginPage() {
         <Card className="border-border/50 shadow-xl shadow-black/5 rounded-[2rem] overflow-hidden">
           <CardContent className="p-8 md:p-10">
             {formError && (
-              <div className="mb-6 flex items-center gap-3 rounded-xl bg-destructive/10 p-4 text-sm font-bold text-destructive animate-in fade-in zoom-in-95 duration-200">
-                <IconAlertCircle className="size-5 shrink-0" />
-                <p>{formError}</p>
+              <div className="mb-6 flex flex-col gap-3 rounded-xl bg-destructive/10 p-4 text-sm font-bold text-destructive animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex items-center gap-3">
+                  <IconAlertCircle className="size-5 shrink-0" />
+                  <p>{formError}</p>
+                </div>
+                {unverified && (
+                  <Button 
+                    type="button" 
+                    variant="link" 
+                    className="text-destructive font-black uppercase tracking-widest text-[10px] h-auto p-0 w-fit underline decoration-2 underline-offset-4"
+                    onClick={handleResendVerification}
+                    disabled={resending}
+                  >
+                    {resending ? "Resending..." : "Resend Verification Link"}
+                  </Button>
+                )}
               </div>
             )}
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

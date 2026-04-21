@@ -26,7 +26,8 @@ import { useRouter, usePathname } from "next/navigation";
 
 interface User {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   accountNumber: string;
   balance: number;
@@ -38,7 +39,6 @@ interface User {
 
 export default function UserManagementClient({ users: initialUsers }: { users: User[] }) {
   const router = useRouter();
-  const pathname = usePathname();
   const [search, setSearch] = useState("");
 
   const handleUserUpdate = () => {
@@ -47,7 +47,8 @@ export default function UserManagementClient({ users: initialUsers }: { users: U
   };
 
   const filteredUsers = initialUsers.filter(u =>
-    u.name.toLowerCase().includes(search.toLowerCase()) ||
+    u.firstName.toLowerCase().includes(search.toLowerCase()) ||
+    u.lastName.toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase()) ||
     u.accountNumber.includes(search)
   );
@@ -114,10 +115,10 @@ export default function UserManagementClient({ users: initialUsers }: { users: U
                               "flex aspect-square size-10 items-center justify-center rounded-xl font-bold text-white shadow-sm transition-transform group-hover:scale-110",
                               u.role === 'admin' ? "bg-destructive shadow-destructive/20" : "bg-primary shadow-primary/20"
                             )}>
-                              {u.name.charAt(0).toUpperCase()}
+                              {u.firstName.charAt(0).toUpperCase()}
                             </div>
                             <div className="flex flex-col">
-                              <span className="font-bold text-sm tracking-tight">{u.name}</span>
+                              <span className="font-bold text-sm tracking-tight">{u.firstName} {u.lastName}</span>
                               <span className="text-xs text-muted-foreground font-medium">{u.email}</span>
                             </div>
                           </div>
@@ -140,7 +141,7 @@ export default function UserManagementClient({ users: initialUsers }: { users: U
                         </TableCell>
                         <TableCell className="pr-8 text-right space-x-2">
                           <UserEditor user={u} onUpdate={handleUserUpdate} />
-                          <UserDeleteButton userId={u.id} name={u.name} />
+                          <UserDeleteButton userId={u.id} name={`${u.firstName} ${u.lastName}`} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -158,10 +159,10 @@ export default function UserManagementClient({ users: initialUsers }: { users: U
                           "flex aspect-square size-10 items-center justify-center rounded-xl font-bold text-white shadow-sm",
                           u.role === 'admin' ? "bg-destructive" : "bg-primary"
                         )}>
-                          {u.name.charAt(0).toUpperCase()}
+                          {u.firstName.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex flex-col">
-                          <span className="font-bold text-sm">{u.name}</span>
+                          <span className="font-bold text-sm">{u.firstName} {u.lastName}</span>
                           <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{u.role}</span>
                         </div>
                       </div>
@@ -183,7 +184,7 @@ export default function UserManagementClient({ users: initialUsers }: { users: U
                       <div className="flex-1">
                         <UserEditor user={u} onUpdate={handleUserUpdate} />
                       </div>
-                      <UserDeleteButton userId={u.id} name={u.name} />
+                      <UserDeleteButton userId={u.id} name={`${u.firstName} ${u.lastName}`} />
                     </div>
                   </div>
                 ))}

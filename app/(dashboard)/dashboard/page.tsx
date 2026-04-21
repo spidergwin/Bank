@@ -77,7 +77,7 @@ export default async function DashboardPage() {
       )}
 
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Welcome back, {user.name}</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Welcome back, {user.firstName}</h2>
         <p className="text-muted-foreground">Here&apos;s what&apos;s happening with your account today.</p>
       </div>
 
@@ -167,7 +167,7 @@ export default async function DashboardPage() {
                         </div>
                         <div>
                           <p className="text-sm font-semibold">
-                            {isSender ? `Sent to ${tx.receiver?.name || 'Unknown'}` : `Received from ${tx.sender?.name || 'Deposit'}`}
+                            {isSender ? `Sent to ${tx.receiver ? `${tx.receiver.firstName} ${tx.receiver.lastName}` : 'Unknown'}` : `Received from ${tx.sender ? `${tx.sender.firstName} ${tx.sender.lastName}` : 'Deposit'}`}
                           </p>
                           <p className="text-xs text-muted-foreground flex items-center gap-2">
                             {new Date(tx.createdAt).toLocaleDateString()} • {tx.type}

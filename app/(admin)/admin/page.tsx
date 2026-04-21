@@ -49,11 +49,6 @@ export default async function AdminPage() {
     },
   });
 
-  const serializedTransactions = recentTransactions.map((tx: Transaction) => ({
-    ...tx,
-    amount: Number(tx.amount),
-  }));
-
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
@@ -122,7 +117,7 @@ export default async function AdminPage() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold truncate max-w-[200px]">
-                          {tx.sender?.name || 'System'} → {tx.receiver?.name || 'ATM'}
+                          {tx.sender ? `${tx.sender.firstName} ${tx.sender.lastName}` : 'System'} → {tx.receiver ? `${tx.receiver.firstName} ${tx.receiver.lastName}` : (tx.type === 'withdraw' ? 'ATM' : 'System')}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {new Date(tx.createdAt).toLocaleTimeString()} • {tx.type}
@@ -158,7 +153,7 @@ export default async function AdminPage() {
                       <IconUsers className="h-5 w-5" />
                     </div>
                     <div className="overflow-hidden">
-                      <p className="text-sm font-semibold truncate max-w-[150px]">{u.name}</p>
+                      <p className="text-sm font-semibold truncate max-w-[150px]">{u.firstName} {u.lastName}</p>
                       <p className="text-xs text-muted-foreground truncate max-w-[150px]">{u.email}</p>
                     </div>
                   </div>

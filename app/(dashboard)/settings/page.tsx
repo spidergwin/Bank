@@ -44,7 +44,8 @@ export default function SettingsPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showPasswords, setShowPasswords] = useState({ current: false, new: false, confirm: false });
-  const [newName, setNewName] = useState("");
+  const [newFirstName, setNewFirstName] = useState("");
+  const [newLastName, setNewLastName] = useState("");
 
   const passwordForm = useForm<z.infer<typeof passwordSchema>>({
     resolver: zodResolver(passwordSchema),
@@ -66,8 +67,9 @@ export default function SettingsPage() {
   ];
 
   useEffect(() => {
-    if (session?.user?.name) {
-      setNewName(session.user.name);
+    if (session?.user) {
+      setNewFirstName(session.user.firstName || "");
+      setNewLastName(session.user.lastName || "");
     }
   }, [session]);
 
@@ -76,7 +78,8 @@ export default function SettingsPage() {
     setIsUpdating(true);
     try {
       const { error } = await authClient.updateUser({
-        name: newName,
+        firstName: newFirstName,
+        lastName: newLastName,
       });
 
       if (error) {
@@ -159,15 +162,26 @@ export default function SettingsPage() {
             <CardContent className="p-8 pt-4 space-y-6">
               <form onSubmit={handleUpdateProfile} className="space-y-6">
                 <FieldGroup className="space-y-4">
-                  <Field>
-                    <FieldLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Full Name</FieldLabel>
-                    <Input 
-                      value={newName} 
-                      onChange={(e) => setNewName(e.target.value)}
-                      placeholder="Your Name"
-                      className="h-12 rounded-xl bg-accent/30 border-transparent focus:bg-background transition-all"
-                    />
-                  </Field>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field>
+                      <FieldLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground">First Name</FieldLabel>
+                      <Input 
+                        value={newFirstName} 
+                        onChange={(e) => setNewFirstName(e.target.value)}
+                        placeholder="John"
+                        className="h-12 rounded-xl bg-accent/30 border-transparent focus:bg-background transition-all"
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Last Name</FieldLabel>
+                      <Input 
+                        value={newLastName} 
+                        onChange={(e) => setNewLastName(e.target.value)}
+                        placeholder="Doe"
+                        className="h-12 rounded-xl bg-accent/30 border-transparent focus:bg-background transition-all"
+                      />
+                    </Field>
+                  </div>
                   <Field>
                     <FieldLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Email Address</FieldLabel>
                     <Input 
