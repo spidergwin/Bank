@@ -74,16 +74,21 @@ model Verification {
 }
 
 model Transaction {
-  id          String   @id @default(cuid())
-  amount      Float
-  type        String
-  description String?
-  status      String?
-  createdAt   DateTime @default(now())
-  senderId    String?
-  receiverId  String?
-  receiver    User?    @relation("ReceivedTransactions", fields: [receiverId], references: [id])
-  sender      User?    @relation("SentTransactions", fields: [senderId], references: [id])
+  id                String   @id @default(cuid())
+  amount            Float
+  type              String
+  description       String?
+  status            String?
+  providerReference String?
+  providerId        String?
+  walletAddress     String?
+  network           String?
+  withdrawalMethod  String?
+  createdAt         DateTime @default(now())
+  senderId          String?
+  receiverId        String?
+  receiver          User?    @relation("ReceivedTransactions", fields: [receiverId], references: [id])
+  sender            User?    @relation("SentTransactions", fields: [senderId], references: [id])
 
   @@map("transaction")
 }

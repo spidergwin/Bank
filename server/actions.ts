@@ -6,13 +6,13 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { User, Transaction } from "@prisma/client";
 import crypto from "crypto";
+import { getProvider } from "@/lib/payments";
 
-// Helper to serialize BigInt to Number for JSON compatibility
+// Helper to serialize User/Transaction for JSON compatibility
 function serializeUser(user: User | null) {
   if (!user) return null;
   return {
     ...user,
-    balance: Number(user.balance),
   };
 }
 
@@ -20,7 +20,6 @@ function serializeTransaction(tx: Transaction | null) {
   if (!tx) return null;
   return {
     ...tx,
-    amount: Number(tx.amount),
   };
 }
 
@@ -46,24 +45,24 @@ export async function transferFunds(formData: {
       if (!sender) throw new Error("Sender not found");
       if (sender.isLocked) throw new Error(`Account Locked: ${sender.lockedReason || "Your account has been restricted."}`);
       if (sender.accountNumber === receiverAccountNumber) throw new Error("Cannot send money to yourself");
-      if (Number(sender.balance) < amount) throw new Error("Insufficient balance");
+      if (sender.balance < amount) throw new Error("Insufficient balance");
 
       const receiver = await tx.user.findUnique({ where: { accountNumber: receiverAccountNumber } });
       if (!receiver) throw new Error("Receiver account not found");
 
       await tx.user.update({
         where: { id: senderId },
-        data: { balance: { decrement: BigInt(Math.round(amount * 100)) } },
+        data: { balance: { decrement: Math.round(amount) } },
       });
 
       await tx.user.update({
         where: { id: receiver.id },
-        data: { balance: { increment: BigInt(Math.round(amount * 100)) } },
+        data: { balance: { increment: Math.round(amount) } },
       });
 
       return await tx.transaction.create({
         data: {
-          amount: BigInt(Math.round(amount * 100)),
+          amount: Math.round(amount),
           type: "transfer",
           description: description || `Transfer to ${receiver.name}`,
           status: "completed",
@@ -94,6 +93,9 @@ export async function getReceiverName(accountNumber: string) {
 export async function withdrawFunds(formData: {
   amount: number;
   description?: string;
+  withdrawalMethod: string;
+  walletAddress: string;
+  network: string;
 }) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -102,28 +104,33 @@ export async function withdrawFunds(formData: {
   if (!session) return { error: "Unauthorized" };
 
   const userId = session.user.id;
-  const { amount, description } = formData;
+  const { amount, description, withdrawalMethod, walletAddress, network } = formData;
 
   if (amount <= 0) return { error: "Amount must be greater than zero" };
+  if (!walletAddress || !network) return { error: "Wallet address and network are required" };
 
   try {
     const result = await db.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { id: userId } });
       if (!user) throw new Error("User not found");
       if (user.isLocked) throw new Error(`Account Locked: ${user.lockedReason || "Your account has been restricted."}`);
-      if (Number(user.balance) < (amount * 100)) throw new Error("Insufficient balance");
+      if (user.balance < (amount)) throw new Error("Insufficient balance");
 
+      // Deduct balance immediately to prevent double spending
       await tx.user.update({
         where: { id: userId },
-        data: { balance: { decrement: BigInt(Math.round(amount * 100)) } },
+        data: { balance: { decrement: Math.round(amount) } },
       });
 
       return await tx.transaction.create({
         data: {
-          amount: BigInt(Math.round(amount * 100)),
+          amount: Math.round(amount),
           type: "withdraw",
-          description: description || "ATM Withdrawal",
-          status: "completed",
+          description: description || `Crypto Withdrawal (${network})`,
+          status: "pending",
+          withdrawalMethod: "CRYPTO",
+          walletAddress,
+          network,
           senderId: userId,
           receiverId: null,
         },
@@ -138,6 +145,82 @@ export async function withdrawFunds(formData: {
     return { error: error.message || "Withdrawal failed" };
   }
 }
+
+export async function adminApproveWithdrawal(transactionId: string) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session || session.user.role !== "admin") return { error: "Unauthorized" };
+
+  try {
+    const tx = await db.transaction.findUnique({
+      where: { id: transactionId },
+    });
+
+    if (!tx || tx.type !== "withdraw" || tx.status !== "pending") {
+      return { error: "Invalid transaction" };
+    }
+
+    const updatedTx = await db.transaction.update({
+      where: { id: transactionId },
+      data: { status: "completed" },
+    });
+
+    revalidatePath("/admin/transactions");
+    revalidatePath("/dashboard");
+    revalidatePath("/transactions");
+    return { success: true, data: serializeTransaction(updatedTx) };
+  } catch (err: unknown) {
+    const error = err as Error;
+    return { error: error.message || "Failed to approve withdrawal" };
+  }
+}
+
+export async function adminDenyWithdrawal(transactionId: string, reason?: string) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session || session.user.role !== "admin") return { error: "Unauthorized" };
+
+  try {
+    const result = await db.$transaction(async (txPrisma) => {
+      const tx = await txPrisma.transaction.findUnique({
+        where: { id: transactionId },
+      });
+
+      if (!tx || tx.type !== "withdraw" || tx.status !== "pending") {
+        throw new Error("Invalid transaction");
+      }
+
+      if (!tx.senderId) throw new Error("Sender not found");
+
+      // Refund the user's balance
+      await txPrisma.user.update({
+        where: { id: tx.senderId },
+        data: { balance: { increment: tx.amount } },
+      });
+
+      return await txPrisma.transaction.update({
+        where: { id: transactionId },
+        data: { 
+          status: "denied",
+          description: `${tx.description || ""} (Denied: ${reason || "Unspecified reason"})`
+        },
+      });
+    });
+
+    revalidatePath("/admin/transactions");
+    revalidatePath("/dashboard");
+    revalidatePath("/transactions");
+    return { success: true, data: serializeTransaction(result) };
+  } catch (err: unknown) {
+    const error = err as Error;
+    return { error: error.message || "Failed to deny withdrawal" };
+  }
+}
+
 
 export async function adminUpdateUser(userId: string, data: {
   name?: string;
@@ -158,7 +241,7 @@ export async function adminUpdateUser(userId: string, data: {
         ...(data.name && { name: data.name }),
         ...(data.email && { email: data.email }),
         ...(data.role && { role: data.role }),
-        ...(data.balance !== undefined && { balance: BigInt(Math.round(data.balance * 100)) }),
+        ...(data.balance !== undefined && { balance: Math.round(data.balance * 100) }),
       },
     });
 
@@ -183,7 +266,7 @@ export async function adminAdjustUserBalance(userId: string, amount: number, typ
   }
 
   try {
-    const adjustment = type === 'add' ? BigInt(Math.round(amount * 100)) : -BigInt(Math.round(amount * 100));
+    const adjustment = type === 'add' ? Math.round(amount * 100) : -Math.round(amount * 100);
     const updatedUser = await db.user.update({
       where: { id: userId },
       data: { balance: { increment: adjustment } },
@@ -243,7 +326,7 @@ export async function adminDeleteUser(userId: string) {
   }
 }
 
-export async function createDeposit(amount: number, provider: "nexapay" | "maxelpay" = "nexapay") {
+export async function createDeposit(amount: number, providerId: string = "nexapay") {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -256,117 +339,66 @@ export async function createDeposit(amount: number, provider: "nexapay" | "maxel
 
   if (!user) return { error: "User not found" };
 
-  const appUrl = process.env.NODE_ENV == "development" ? "http://127.0.0.1:3000" : process.env.NEXT_PUBLIC_APP_URL;
+  const provider = getProvider(providerId);
+  if (!provider) return { error: "Invalid provider" };
+
+  const appUrl = process.env.NODE_ENV == "development" ? "http://127.0.0.1:3000" : (process.env.NEXT_PUBLIC_APP_URL || "");
   const orderId = `DEP-${user.id.slice(0, 8)}-${Date.now()}`;
 
-  if (provider === "nexapay") {
-    const apiKey = process.env.NEXAPAY_API_KEY;
-    const apiUrl = process.env.NEXAPAY_API_URL || "https://nexapay.one/api/v1";
+  const result = await provider.createPayment({
+    amount,
+    orderId,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    },
+    appUrl,
+  });
 
-    if (!apiKey) {
-      console.error("NexaPay API Key missing");
-      return { error: "NexaPay configuration missing" };
-    }
-
-    const payload = {
-      amount: Number(amount),
-      currency: "USD",
-      crypto: "USDC", // Settlement crypto
-      description: `Deposit for ${user.name} (Order ${orderId})`,
-      customer_email: user.email,
-      success_url: `${appUrl}/dashboard?status=success`,
-      cancel_url: `${appUrl}/deposit?status=cancelled`,
-      callback_url: `${appUrl}/api/webhooks/nexapay`,
-    };
-
-    try {
-      const response = await fetch(`${apiUrl}/payments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": apiKey
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const result = await response.json();
-
-      if (result.success && result.payment) {
-        await db.transaction.create({
-          data: {
-            amount: BigInt(Math.round(amount * 100)),
-            type: "deposit",
-            status: "pending",
-            description: `NexaPay Deposit | ID: ${result.payment.order_id}`,
-            senderId: null,
-            receiverId: user.id,
-          }
-        });
-
-        return { success: true, url: result.payment.checkout_url };
-      } else {
-        console.error("NexaPay API Error:", result);
-        return { error: result.message || "Failed to initiate NexaPay payment" };
+  if (result.success && result.url) {
+    await db.transaction.create({
+      data: {
+        amount: Math.round(amount * 100),
+        type: "deposit",
+        status: "pending",
+        description: `${provider.name} Deposit | Ref: ${result.providerReference || orderId}`,
+        receiver: { connect: { id: user.id } },
+        providerId: provider.id,
+        providerReference: result.providerReference,
       }
-    } catch (error) {
-      console.error("NexaPay Network Error:", error);
-      return { error: "Failed to connect to NexaPay" };
-    }
-  } else if (provider === "maxelpay") {
-    const apiKey = process.env.MAXELPAY_API_KEY;
-    const apiUrl = process.env.MAXELPAY_API_URL || "https://api.maxelpay.com/api/v1";
+    });
 
-    if (!apiKey) {
-      console.error("MaxelPay API Key missing");
-      return { error: "MaxelPay configuration missing" };
+    return { success: true, url: result.url };
+    } else {
+    return { error: result.error || `Failed to initiate ${provider.name} payment` };
+    }
     }
 
-    const payload = {
-      orderId: orderId,
-      amount: Number(amount),
-      currency: "USD",
-      description: `Deposit for ${user.name} (Order ${orderId})`,
-      successUrl: `${appUrl}/dashboard?status=success`,
-      cancelUrl: `${appUrl}/deposit?status=cancelled`,
-      callbackUrl: `${appUrl}/api/webhooks/maxelpay`,
-    };
+    export async function getResumeUrl(transactionId: string) {
+    const session = await auth.api.getSession({
+    headers: await headers(),
+    });
 
-    try {
-      const response = await fetch(`${apiUrl}/payments/sessions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-KEY": apiKey
-        },
-        body: JSON.stringify(payload)
-      });
+    if (!session) return { error: "Unauthorized" };
 
-      const result = await response.json();
-      const { data } = result;
-      console.log(data)
-
-      if (data.sessionId && data.paymentUrl) {
-        await db.transaction.create({
-          data: {
-            amount: BigInt(Math.round(amount * 100)),
-            type: "deposit",
-            status: "pending",
-            description: `MaxelPay Deposit | Session: ${data.sessionId}`,
-            senderId: null,
-            receiverId: user.id,
-          }
-        });
-
-        return { success: true, url: data.paymentUrl };
-      } else {
-        console.error("MaxelPay API Error:", result);
-        return { error: result.message || "Failed to initiate MaxelPay payment" };
-      }
-    } catch (error) {
-      console.error("MaxelPay Network Error:", error);
-      return { error: "Failed to connect to MaxelPay" };
+    const transaction = await db.transaction.findFirst({
+    where: {
+      id: transactionId,
+      receiverId: session.user.id,
+      type: "deposit",
+      status: "pending"
     }
+    });
+  if (!transaction || !transaction.providerId || !transaction.providerReference) {
+    return { error: "Transaction not found or not eligible for resume" };
   }
 
-  return { error: "Invalid provider" };
+  // Currently only Paymento is supported for resume logic in this specific way
+  if (transaction.providerId === "paymento") {
+    const url = `https://app.paymento.io/gateway?token=${transaction.providerReference}`;
+    return { success: true, url };
+  }
+
+  return { error: "Resume not supported for this provider" };
 }

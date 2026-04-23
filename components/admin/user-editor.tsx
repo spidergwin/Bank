@@ -87,20 +87,16 @@ export function UserEditor({ user, onUpdate }: UserEditorProps) {
   const handleSetBalance = async () => {
     setIsLoading(true);
     try {
-      const balanceInCents = Math.round(Number(balanceValue) * 100);
-      const result = await adminUpdateUser(user.id, { balance: balanceInCents / 100 }); // Admin action expects dollars as per current implementation, wait, my write_file for actions.ts multiplied it by 100
-      // Actually my new server/actions.ts adminUpdateUser does balance: BigInt(Math.round(data.balance * 100))
-      // So I should pass dollars.
-      const result2 = await adminUpdateUser(user.id, { balance: Number(balanceValue) });
+      const result = await adminUpdateUser(user.id, { balance: Number(balanceValue) });
       
-      if (result2.error) toast.error(result2.error);
+      if (result.error) toast.error(result.error);
       else {
         toast.success("Balance updated successfully");
         onUpdate?.();
         setIsOpen(false);
       }
     } catch (err) {
-      toast.error(`${err}`);
+      toast.error("Failed to update balance");
     } finally {
       setIsLoading(false);
     }

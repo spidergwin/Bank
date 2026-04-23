@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import { IconBuildingBank } from "@tabler/icons-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { UserNav } from "@/components/user-nav";
 
 export default function DashboardLayout({
   children,
@@ -59,6 +60,7 @@ export default function DashboardLayout({
             </div>
             <div className="flex items-center gap-4">
               <ThemeToggle />
+              <UserNav />
             </div>
           </header>
           <main className="flex-1 overflow-y-auto p-4 md:p-8">

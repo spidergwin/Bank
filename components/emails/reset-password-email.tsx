@@ -36,7 +36,7 @@ export const ResetPasswordEmail = ({
               Reset your password
             </Heading>
             <Text className="text-black text-[14px] leading-[24px]">
-              We received a request to reset your password for your Luma Bank account. If you didn't make this request, you can safely ignore this email.
+              We received a request to reset your password for your Luma Bank account. If you didn&apos;t make this request, you can safely ignore this email.
             </Text>
             <Section className="text-center mt-[32px] mb-[32px]">
               <Button

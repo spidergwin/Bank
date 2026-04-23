@@ -6,9 +6,7 @@ async function main() {
   const user = await prisma.user.findUnique({
     where: { email: "admin@lumabank.com" },
   });
-  console.log("Admin Check:", JSON.stringify(user, (key, value) =>
-    typeof value === 'bigint' ? value.toString() : value
-  , 2));
+  console.log("Admin Check:", JSON.stringify(user, null, 2));
 }
 
 main().finally(() => prisma.$disconnect());

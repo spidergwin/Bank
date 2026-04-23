@@ -3,7 +3,7 @@ import { hashPassword } from "better-auth/crypto";
 
 async function main() {
   const adminEmail = "admin@lumabank.com";
-  const adminPassword = "password123";
+  const adminPassword = "Password@123";
   const adminName = "Luma Admin";
   const adminAccountNumber = "0000000001";
 
@@ -17,6 +17,8 @@ async function main() {
     const user = await prisma.user.create({
       data: {
         name: adminName,
+        firstName: "Luma",
+        lastName: "Admin",
         email: adminEmail,
         accountNumber: adminAccountNumber,
         balance: 1000000, // $10,000 for admin testing

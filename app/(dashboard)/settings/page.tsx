@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
@@ -46,6 +47,7 @@ export default function SettingsPage() {
   const [showPasswords, setShowPasswords] = useState({ current: false, new: false, confirm: false });
   const [newFirstName, setNewFirstName] = useState("");
   const [newLastName, setNewLastName] = useState("");
+  const [newImage, setNewImage] = useState("");
 
   const passwordForm = useForm<z.infer<typeof passwordSchema>>({
     resolver: zodResolver(passwordSchema),
@@ -70,6 +72,7 @@ export default function SettingsPage() {
     if (session?.user) {
       setNewFirstName(session.user.firstName || "");
       setNewLastName(session.user.lastName || "");
+      setNewImage(session.user.image || "");
     }
   }, [session]);
 
@@ -80,6 +83,7 @@ export default function SettingsPage() {
       const { error } = await authClient.updateUser({
         firstName: newFirstName,
         lastName: newLastName,
+        image: newImage || undefined,
       });
 
       if (error) {
@@ -161,7 +165,28 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="p-8 pt-4 space-y-6">
               <form onSubmit={handleUpdateProfile} className="space-y-6">
-                <FieldGroup className="space-y-4">
+                <FieldGroup className="space-y-6">
+                  <div className="flex flex-col md:flex-row items-center gap-6 p-6 rounded-2xl bg-accent/10 border border-accent/20">
+                    <Avatar className="h-24 w-24 rounded-2xl border-2 border-primary/20">
+                      <AvatarImage src={newImage} />
+                      <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
+                        {`${newFirstName?.charAt(0) || ""}${newLastName?.charAt(0) || ""}`.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 space-y-4 w-full">
+                      <Field>
+                        <FieldLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Profile Picture URL</FieldLabel>
+                        <Input 
+                          value={newImage} 
+                          onChange={(e) => setNewImage(e.target.value)}
+                          placeholder="https://example.com/avatar.jpg"
+                          className="h-12 rounded-xl bg-background border-accent/50 focus:border-primary transition-all"
+                        />
+                        <p className="text-[10px] font-medium text-muted-foreground mt-2 uppercase tracking-tight">Paste a direct link to an image (JPEG, PNG, WebP)</p>
+                      </Field>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field>
                       <FieldLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground">First Name</FieldLabel>

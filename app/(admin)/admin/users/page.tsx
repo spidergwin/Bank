@@ -9,12 +9,9 @@ export default async function AdminUsersPage() {
     },
   });
 
-  // Prisma Dates and BigInt need to be serialized for client components
+  // Prisma Dates and other fields are already serialized correctly for client components
   const serializedUsers = users.map((user: User) => ({
     ...user,
-    balance: Number(user.balance),
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
   }));
 
   return <UserManagementClient users={serializedUsers} />;

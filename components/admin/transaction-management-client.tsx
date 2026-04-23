@@ -16,11 +16,13 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
-import { IconHistory, IconSearch, IconArrowUpRight, IconArrowDownRight, IconDownload, IconFilter } from "@tabler/icons-react";
+import { IconHistory, IconSearch, IconArrowUpRight, IconArrowDownRight, IconDownload, IconFilter, IconCheck, IconX, IconLoader2, IconCurrencyBitcoin, IconDeviceMobile } from "@tabler/icons-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { adminApproveWithdrawal, adminDenyWithdrawal } from "@/server/actions";
+import { toast } from "sonner";
 
 interface Transaction {
   id: string;
@@ -28,6 +30,9 @@ interface Transaction {
   type: string;
   status: string | null;
   description: string | null;
+  withdrawalMethod: string | null;
+  walletAddress: string | null;
+  network: string | null;
   createdAt: Date;
   sender: { firstName: string; lastName: string; accountNumber: string } | null;
   receiver: { firstName: string; lastName: string; accountNumber: string } | null;
@@ -35,6 +40,7 @@ interface Transaction {
 
 export default function TransactionManagementClient({ transactions }: { transactions: Transaction[] }) {
   const [search, setSearch] = useState("");
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const filteredTransactions = transactions.filter(tx =>
     tx.description?.toLowerCase().includes(search.toLowerCase()) ||
@@ -45,8 +51,38 @@ export default function TransactionManagementClient({ transactions }: { transact
     tx.sender?.accountNumber.includes(search) ||
     tx.receiver?.accountNumber.includes(search) ||
     tx.type.toLowerCase().includes(search.toLowerCase()) ||
-    tx.status?.toLowerCase().includes(search.toLowerCase())
+    tx.status?.toLowerCase().includes(search.toLowerCase()) ||
+    tx.walletAddress?.toLowerCase().includes(search.toLowerCase())
   );
+
+  async function handleApprove(id: string) {
+    setProcessingId(id);
+    try {
+      const res = await adminApproveWithdrawal(id);
+      if (res.error) toast.error(res.error);
+      else toast.success("Withdrawal approved successfully");
+    } catch (err) {
+      toast.error("Failed to approve withdrawal");
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  async function handleDeny(id: string) {
+    const reason = window.prompt("Reason for denial:");
+    if (reason === null) return;
+    
+    setProcessingId(id);
+    try {
+      const res = await adminDenyWithdrawal(id, reason);
+      if (res.error) toast.error(res.error);
+      else toast.success("Withdrawal denied and funds refunded");
+    } catch (err) {
+      toast.error("Failed to deny withdrawal");
+    } finally {
+      setProcessingId(null);
+    }
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -77,7 +113,7 @@ export default function TransactionManagementClient({ transactions }: { transact
             <div>
               <CardTitle className="text-2xl font-bold">Audit History</CardTitle>
               <CardDescription className="text-base font-medium">
-                Showing all processed transfers and ATM activities.
+                Showing all processed transfers, deposits, and crypto withdrawals.
               </CardDescription>
             </div>
             <div className="flex aspect-square size-12 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
@@ -100,11 +136,11 @@ export default function TransactionManagementClient({ transactions }: { transact
                   <TableHeader className="bg-accent/30">
                     <TableRow className="hover:bg-transparent border-none">
                       <TableHead className="pl-8 py-4 font-bold text-[10px] uppercase tracking-widest">Transaction</TableHead>
-                      <TableHead className="py-4 font-bold text-[10px] uppercase tracking-widest">Sender</TableHead>
-                      <TableHead className="py-4 font-bold text-[10px] uppercase tracking-widest">Recipient</TableHead>
+                      <TableHead className="py-4 font-bold text-[10px] uppercase tracking-widest">User</TableHead>
+                      <TableHead className="py-4 font-bold text-[10px] uppercase tracking-widest">Method / Details</TableHead>
                       <TableHead className="py-4 font-bold text-[10px] uppercase tracking-widest">Status</TableHead>
                       <TableHead className="py-4 font-bold text-[10px] uppercase tracking-widest text-right">Amount</TableHead>
-                      <TableHead className="pr-8 py-4 font-bold text-[10px] uppercase tracking-widest text-right">Timestamp</TableHead>
+                      <TableHead className="pr-8 py-4 font-bold text-[10px] uppercase tracking-widest text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -114,9 +150,13 @@ export default function TransactionManagementClient({ transactions }: { transact
                           <div className="flex items-center gap-3">
                             <div className={cn(
                               "flex aspect-square size-10 items-center justify-center rounded-xl shadow-sm transition-transform group-hover:scale-110",
-                              tx.type === 'transfer' ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
+                              tx.type === 'transfer' ? "bg-primary/10 text-primary" : 
+                              tx.type === 'deposit' ? "bg-green-100 text-green-700" :
+                              "bg-destructive/10 text-destructive"
                             )}>
-                              {tx.type === 'transfer' ? <IconArrowUpRight size={20} /> : <IconArrowDownRight size={20} />}
+                              {tx.type === 'transfer' ? <IconArrowUpRight size={20} /> : 
+                               tx.type === 'deposit' ? <IconArrowDownRight size={20} /> :
+                               <IconArrowUpRight size={20} className="rotate-180" />}
                             </div>
                             <div className="flex flex-col">
                               <span className="font-bold text-sm tracking-tight capitalize">{tx.type}</span>
@@ -126,22 +166,39 @@ export default function TransactionManagementClient({ transactions }: { transact
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="font-bold text-sm">{tx.sender ? `${tx.sender.firstName} ${tx.sender.lastName}` : 'SYSTEM'}</span>
-                            <span className="text-[10px] font-mono font-bold text-muted-foreground">{tx.sender?.accountNumber || '---'}</span>
+                            {tx.type === 'transfer' ? (
+                              <>
+                                <span className="font-bold text-[10px] text-muted-foreground uppercase tracking-widest mb-1">From: {tx.sender?.firstName}</span>
+                                <span className="font-bold text-[10px] text-muted-foreground uppercase tracking-widest">To: {tx.receiver?.firstName}</span>
+                              </>
+                            ) : (
+                              <span className="font-bold text-sm">{(tx.sender || tx.receiver)?.firstName} {(tx.sender || tx.receiver)?.lastName}</span>
+                            )}
+                            <span className="text-[10px] font-mono font-bold text-muted-foreground">{(tx.sender || tx.receiver)?.accountNumber}</span>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-bold text-sm">{tx.receiver ? `${tx.receiver.firstName} ${tx.receiver.lastName}` : (tx.type === 'withdraw' ? 'ATM WITHDRAWAL' : 'UNKNOWN')}</span>
-                            <span className="text-[10px] font-mono font-bold text-muted-foreground">{tx.receiver?.accountNumber || '---'}</span>
-                          </div>
+                          {tx.type === 'withdraw' ? (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5 text-xs font-bold">
+                                <IconCurrencyBitcoin size={14} className="text-amber-500" />
+                                <span>{tx.network || 'Crypto'}</span>
+                              </div>
+                              {tx.walletAddress && (
+                                <span className="text-[10px] font-mono text-muted-foreground break-all max-w-[150px]">{tx.walletAddress}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs font-medium text-muted-foreground italic">{tx.description || '---'}</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn(
                             "rounded-full px-2 py-0 text-[10px] font-bold uppercase tracking-tight",
                             (tx.status === "completed" || !tx.status) ? "bg-green-50 text-green-700 border-green-200" :
-                            tx.status === "pending" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                            "bg-red-50 text-red-700 border-red-200"
+                            tx.status === "pending" ? "bg-amber-50 text-amber-700 border-amber-200 animate-pulse" :
+                            tx.status === "denied" ? "bg-red-50 text-red-700 border-red-200" :
+                            "bg-gray-50 text-gray-700 border-gray-200"
                           )}>
                             {tx.status || "completed"}
                           </Badge>
@@ -149,15 +206,37 @@ export default function TransactionManagementClient({ transactions }: { transact
                         <TableCell className="text-right">
                           <span className={cn(
                             "font-bold text-sm tracking-tighter",
-                            tx.type === 'transfer' ? "text-primary" : "text-destructive"
-                          )}>${(tx.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            tx.type === 'deposit' ? "text-green-600" : "text-destructive"
+                          )}>{tx.type === 'deposit' ? '+' : '-'}${(tx.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </TableCell>
                         <TableCell className="pr-8 text-right">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold">{new Date(tx.createdAt).toLocaleDateString()}</span>
-                            <span className="text-[10px] font-medium text-muted-foreground"> {new Date(tx.createdAt).toLocaleTimeString()}
-                            </span>
-                          </div>
+                          {tx.type === 'withdraw' && tx.status === 'pending' ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="size-8 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700"
+                                onClick={() => handleApprove(tx.id)}
+                                disabled={processingId === tx.id}
+                              >
+                                {processingId === tx.id ? <IconLoader2 className="size-4 animate-spin" /> : <IconCheck className="size-4" />}
+                              </Button>
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="size-8 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700"
+                                onClick={() => handleDeny(tx.id)}
+                                disabled={processingId === tx.id}
+                              >
+                                {processingId === tx.id ? <IconLoader2 className="size-4 animate-spin" /> : <IconX className="size-4" />}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold">{new Date(tx.createdAt).toLocaleDateString()}</span>
+                              <span className="text-[10px] font-medium text-muted-foreground">{new Date(tx.createdAt).toLocaleTimeString()}</span>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -173,9 +252,13 @@ export default function TransactionManagementClient({ transactions }: { transact
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           "flex aspect-square size-10 items-center justify-center rounded-xl shadow-sm",
-                          tx.type === 'transfer' ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
+                          tx.type === 'transfer' ? "bg-primary/10 text-primary" : 
+                          tx.type === 'deposit' ? "bg-green-100 text-green-700" :
+                          "bg-destructive/10 text-destructive"
                         )}>
-                          {tx.type === 'transfer' ? <IconArrowUpRight size={20} /> : <IconArrowDownRight size={20} />}
+                          {tx.type === 'transfer' ? <IconArrowUpRight size={20} /> : 
+                           tx.type === 'deposit' ? <IconArrowDownRight size={20} /> :
+                           <IconArrowUpRight size={20} className="rotate-180" />}
                         </div>
                         <div className="flex flex-col">
                           <span className="font-bold text-sm tracking-tight capitalize">{tx.type}</span>
@@ -185,33 +268,68 @@ export default function TransactionManagementClient({ transactions }: { transact
                       <div className="flex flex-col items-end gap-1">
                         <span className={cn(
                           "font-bold text-lg tracking-tighter",
-                          tx.type === 'transfer' ? "text-primary" : "text-destructive"
-                        )}>${(tx.amount / 100).toLocaleString()}</span>
+                          tx.type === 'deposit' ? "text-green-600" : "text-destructive"
+                        )}>{tx.type === 'deposit' ? '+' : '-'}${(tx.amount / 100).toLocaleString()}</span>
                         <Badge variant="outline" className={cn(
                           "rounded-full px-2 py-0 text-[8px] font-black uppercase tracking-widest h-4",
                           (tx.status === "completed" || !tx.status) ? "bg-green-50 text-green-700 border-green-200" :
                           tx.status === "pending" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                          "bg-red-50 text-red-700 border-red-200"
+                          tx.status === "denied" ? "bg-red-50 text-red-700 border-red-200" :
+                          "bg-gray-50 text-gray-700 border-gray-200"
                         )}>
                           {tx.status || "completed"}
                         </Badge>
                       </div>
                     </div>
 
+                    {tx.type === 'withdraw' && (
+                      <div className="p-3 rounded-2xl bg-accent/10 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Network</span>
+                          <span className="text-xs font-bold">{tx.network || 'Crypto'}</span>
+                        </div>
+                        {tx.walletAddress && (
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Wallet</span>
+                            <span className="text-[10px] font-mono break-all">{tx.walletAddress}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-4 py-4 border-y border-accent/20">
                       <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Sender</span>
-                        <span className="font-bold text-xs truncate">{tx.sender ? `${tx.sender.firstName} ${tx.sender.lastName}` : 'SYSTEM'}</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">User</span>
+                        <span className="font-bold text-xs truncate">{(tx.sender || tx.receiver)?.firstName} {(tx.sender || tx.receiver)?.lastName}</span>
                       </div>
                       <div className="flex flex-col gap-1 text-right">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Recipient</span>
-                        <span className="font-bold text-xs truncate">{tx.receiver ? `${tx.receiver.firstName} ${tx.receiver.lastName}` : (tx.type === 'withdraw' ? 'ATM' : 'SYSTEM')}</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Account</span>
+                        <span className="font-bold text-xs truncate">{(tx.sender || tx.receiver)?.accountNumber}</span>
                       </div>
                     </div>
 
-                    <p className="text-xs font-medium text-muted-foreground leading-relaxed italic">
-                      &ldquo;{tx.description}&rdquo;
-                    </p>
+                    {tx.status === 'pending' && tx.type === 'withdraw' ? (
+                      <div className="flex gap-2">
+                        <Button 
+                          className="flex-1 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold h-10"
+                          onClick={() => handleApprove(tx.id)}
+                          disabled={processingId === tx.id}
+                        >
+                          {processingId === tx.id ? <IconLoader2 className="animate-spin size-4" /> : "Approve"}
+                        </Button>
+                        <Button 
+                          className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold h-10"
+                          onClick={() => handleDeny(tx.id)}
+                          disabled={processingId === tx.id}
+                        >
+                          {processingId === tx.id ? <IconLoader2 className="animate-spin size-4" /> : "Deny"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-xs font-medium text-muted-foreground leading-relaxed italic">
+                        &ldquo;{tx.description}&rdquo;
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>

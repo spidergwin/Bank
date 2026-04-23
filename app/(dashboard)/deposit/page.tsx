@@ -22,7 +22,7 @@ import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar";
 
 const formSchema = z.object({
   amount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 1.00, "Minimum deposit amount is $1.00"),
-  provider: z.enum(["nexapay", "maxelpay"]),
+  provider: z.enum(["nexapay", "paymento"]),
 });
 
 export default function DepositPage() {
@@ -33,7 +33,7 @@ export default function DepositPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       amount: "",
-      provider: "nexapay",
+      provider: "paymento",
     },
     mode: "onChange",
   });
@@ -49,7 +49,7 @@ export default function DepositPage() {
       if (result.error) {
         toast.error(result.error);
       } else if (result.url) {
-        toast.success(`Redirecting to ${values.provider === "nexapay" ? "NexaPay" : "MaxelPay"}...`);
+        toast.success(`Redirecting to Paymento...`);
         window.location.href = result.url;
       } else {
         toast.error("Failed to get payment URL. Please try again.");
@@ -88,7 +88,9 @@ export default function DepositPage() {
             <FieldGroup className="space-y-8">
               <Field>
                 <FieldLabel className="font-bold text-xs uppercase tracking-widest text-muted-foreground mb-4 block">Select Payment Method</FieldLabel>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
+                  {/* NexaPay commented out as requested */}
+                  {/* 
                   <button
                     type="button"
                     onClick={() => form.setValue("provider", "nexapay")}
@@ -115,13 +117,14 @@ export default function DepositPage() {
                       </div>
                     )}
                   </button>
+                  */}
 
                   <button
                     type="button"
-                    onClick={() => form.setValue("provider", "maxelpay")}
+                    onClick={() => form.setValue("provider", "paymento")}
                     className={cn(
                       "relative flex flex-col items-start p-6 rounded-[1.5rem] border-2 text-left transition-all duration-200 group",
-                      selectedProvider === "maxelpay" 
+                      selectedProvider === "paymento" 
                         ? "border-primary bg-primary/5 shadow-md" 
                         : "border-accent/50 bg-accent/10 hover:border-accent hover:bg-accent/20"
                     )}
@@ -130,7 +133,7 @@ export default function DepositPage() {
                       <AvatarGroup className="-space-x-3">
                         <Avatar className={cn(
                           "size-10 border-2 border-background shadow-sm",
-                          selectedProvider === "maxelpay" ? "bg-primary text-primary-foreground" : "bg-background text-[#F7931A]"
+                          selectedProvider === "paymento" ? "bg-primary text-primary-foreground" : "bg-background text-[#F7931A]"
                         )}>
                           <AvatarFallback className="bg-inherit">
                             <IconCurrencyBitcoin size={20} strokeWidth={2.5} />
@@ -138,7 +141,7 @@ export default function DepositPage() {
                         </Avatar>
                         <Avatar className={cn(
                           "size-10 border-2 border-background shadow-sm",
-                          selectedProvider === "maxelpay" ? "bg-primary text-primary-foreground" : "bg-background text-[#627EEA]"
+                          selectedProvider === "paymento" ? "bg-primary text-primary-foreground" : "bg-background text-[#627EEA]"
                         )}>
                           <AvatarFallback className="bg-inherit">
                             <IconCurrencyEthereum size={20} strokeWidth={2.5} />
@@ -146,7 +149,7 @@ export default function DepositPage() {
                         </Avatar>
                         <Avatar className={cn(
                           "size-10 border-2 border-background shadow-sm",
-                          selectedProvider === "maxelpay" ? "bg-primary text-primary-foreground" : "bg-background text-[#14F195]"
+                          selectedProvider === "paymento" ? "bg-primary text-primary-foreground" : "bg-background text-[#14F195]"
                         )}>
                           <AvatarFallback className="bg-inherit">
                             <IconCurrencySolana size={20} strokeWidth={2.5} />
@@ -154,7 +157,7 @@ export default function DepositPage() {
                         </Avatar>
                         <Avatar className={cn(
                           "size-10 border-2 border-background shadow-sm",
-                          selectedProvider === "maxelpay" ? "bg-primary text-primary-foreground" : "bg-background text-primary/40"
+                          selectedProvider === "paymento" ? "bg-primary text-primary-foreground" : "bg-background text-primary/40"
                         )}>
                           <AvatarFallback className="bg-inherit">
                             <IconCoins size={20} strokeWidth={2.5} />
@@ -163,10 +166,10 @@ export default function DepositPage() {
                       </AvatarGroup>
                     </div>
                     <div className="space-y-1">
-                      <p className="font-bold text-lg tracking-tight">MaxelPay</p>
+                      <p className="font-bold text-lg tracking-tight">Paymento</p>
                       <p className="text-xs text-muted-foreground font-medium">Crypto Assets</p>
                     </div>
-                    {selectedProvider === "maxelpay" && (
+                    {selectedProvider === "paymento" && (
                       <div className="absolute top-4 right-4 h-6 w-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
                         <IconCheck size={14} strokeWidth={4} />
                       </div>
@@ -196,13 +199,11 @@ export default function DepositPage() {
               
               <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-2">
                 <div className="flex items-center gap-2 text-primary">
-                  {selectedProvider === "nexapay" ? <IconCreditCard size={18} /> : <IconCoins size={18} />}
-                  <span className="text-sm font-bold">Secure Payment via {selectedProvider === "nexapay" ? "NexaPay" : "MaxelPay"}</span>
+                  <IconCoins size={18} />
+                  <span className="text-sm font-bold">Secure Payment via Paymento</span>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed font-medium">
-                  {selectedProvider === "nexapay" 
-                    ? "We use NexaPay for secure, encrypted card payments. Your funds will be credited instantly upon confirmation."
-                    : "MaxelPay handles our crypto deposits securely. Your funds will be credited after blockchain confirmation."}
+                  Paymento handles our crypto deposits securely. Your funds will be credited after blockchain confirmation.
                 </p>
               </div>
 
@@ -215,12 +216,12 @@ export default function DepositPage() {
                   {isPending ? (
                     <span className="flex items-center gap-2">
                       <IconLoader2 className="h-5 w-5 animate-spin" />
-                      Connecting to {selectedProvider === "nexapay" ? "NexaPay" : "MaxelPay"}...
+                      Connecting to Paymento...
                     </span>
                   ) : (
                     <span className="flex items-center gap-2">
                       <IconExternalLink className="h-5 w-5" />
-                      Proceed with {selectedProvider === "nexapay" ? "NexaPay" : "MaxelPay"}
+                      Deposit with Paymento
                     </span>
                   )}
                 </Button>
@@ -232,7 +233,7 @@ export default function DepositPage() {
 
       <div className="p-6 rounded-[2rem] bg-accent/20 border border-accent/30 text-center">
         <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em]">
-          Secure Payments Powered by {selectedProvider === "nexapay" ? "NexaPay.one" : "MaxelPay.com"}
+          Secure Payments Powered by Paymento.io
         </p>
       </div>
     </div>
